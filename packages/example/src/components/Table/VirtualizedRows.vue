@@ -8,63 +8,38 @@ import {
   getSortedRowModel,
   Row,
 } from "@tanstack/vue-table";
-import { defineComponent, ref, watch } from "vue";
-import { Person, makeData } from "./makeData";
+import { ComputedRef, computed, defineComponent, ref, watch } from "vue";
+import { Person } from "./makeData";
 import { useVirtualizer } from "@tanstack/vue-virtual";
+import { array } from "vue-types";
+import type { ColumnType } from "./interface";
 
 export default defineComponent({
-  setup() {
+  props: {
+    columns: array<ColumnType<Person>>().def(),
+    dataSource: array<Person>().def(),
+  },
+  setup(props) {
     const sorting = ref<SortingState>([]);
 
-    const columns: ColumnDef<Person>[] = [
-      {
-        accessorKey: "id",
-        header: "ID",
-        size: 60,
-      },
-      {
-        accessorKey: "firstName",
-        cell: (info) => info.getValue(),
-      },
-      {
-        accessorFn: (row) => row.lastName,
-        id: "lastName",
-        cell: (info) => info.getValue(),
-        header: () => <span>Last Name</span>,
-      },
-      {
-        accessorKey: "age",
-        header: () => "Age",
-        size: 50,
-      },
-      {
-        accessorKey: "visits",
-        header: () => <span>Visits</span>,
-        size: 50,
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-      },
-      {
-        accessorKey: "progress",
-        header: "Profile Progress",
-        size: 80,
-      },
-      {
-        accessorKey: "createAt",
-        header: "Created At",
-        cell: (info) => info.getValue<Date>()?.toLocaleString(),
-      },
-    ];
+    const columns: ComputedRef<ColumnDef<Person>[]> = computed(() => {
+      return props.columns.map((col) => ({
+        accessorKey: col.dataIndex,
+        header: col.title,
+        size: col.width,
+        accessorFn: col.customHeaderCell,
+        align: 'left',
+      } as ColumnDef<Person>));
+    });
 
-    const data = ref(makeData(50_000));
+    // const data = ref(makeData(50_000));
 
-    const table = useVueTable({
+    const table = useVueTable<Person>({
       get data() {
-        return data.value;
+        // return data.value;
+        return props.dataSource;
       },
-      columns,
+      columns: columns.value,
       state: {
         get sorting() {
           return sorting.value;
@@ -105,16 +80,17 @@ export default defineComponent({
         <div class="p-2">
           <div class="h-2" />
           <div ref={tableContainerRef} class="container">
-            <table>
-              <thead>
+            <table class="virtual-table">
+              <thead class="virtual-table-head">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
                       return (
                         <th
+                          class="virtual-table-cell"
                           key={header.id}
                           colspan={header.colSpan}
-                          style={{ width: header.getSize() }}
+                          style={{ width: `${header.getSize()}px` }}
                         >
                           {header.isPlaceholder ? null : (
                             <div
@@ -142,7 +118,7 @@ export default defineComponent({
                   </tr>
                 ))}
               </thead>
-              <tbody>
+              <tbody class="virtual-table-body">
                 {paddingTop > 0 && (
                   <tr>
                     <td style={{ height: `${paddingTop}px` }} />
@@ -154,7 +130,7 @@ export default defineComponent({
                     <tr key={row.id}>
                       {row.getVisibleCells().map((cell) => {
                         return (
-                          <td key={cell.id}>
+                          <td class="virtual-table-cell" key={cell.id}>
                             <FlexRender
                               render={cell.column.columnDef.cell}
                               props={cell.getContext()}
@@ -180,7 +156,7 @@ export default defineComponent({
   },
 });
 </script>
-<style>
+<style lang="less">
 html {
   font-family: sans-serif;
   font-size: 14px;
@@ -194,28 +170,35 @@ table {
   width: 100%;
 }
 
-thead {
-  background: lightgray;
-  margin: 0;
-  position: sticky;
-  top: 0;
-}
-
-th {
-  border-bottom: 1px solid lightgray;
-  border-right: 1px solid lightgray;
-  padding: 2px 4px;
-  text-align: left;
-}
-
-td {
-  padding: 6px;
-}
-
 .container {
-  border: 1px solid lightgray;
+  // border: 1px solid lightgray;
   height: 500px;
   max-width: 900px !important;
   overflow: auto;
+}
+
+.virtual-table {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  &-head {
+    @apply sticky top-0;
+    .virtual-table-cell {
+      @apply relative text-black/80 font-semibold text-start bg-gray-2 border-b border-solid border-gray-4 transition-colors;
+      &:not(:last-child)::before {
+        @apply absolute content-[''] top-1/2 end-0 w-[1px] h-[1.6em] bg-gray-4 -translate-y-1/2 transition-colors;
+      }
+    }
+  }
+
+  &-body {
+    .virtual-table-cell {
+      @apply border-b border-solid border-gray-4 transition-colors;
+    }
+  }
+
+  &-cell {
+    @apply p-4 break-words;
+  }
 }
 </style>
